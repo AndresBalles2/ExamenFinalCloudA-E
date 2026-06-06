@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ALB ASG Stack Elizabeth-Andres
+
+Resources:
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: ALB-ASG-Elizabeth-Andres
+      LaunchTemplateData:
+
+        ImageId: ami-0cca150d127c2216f
+        InstanceType: t3.micro
+
+        SecurityGroupIds:
+          - !ImportValue EC2SecurityGroupId
+
+        UserData:
+          Fn::Base64: |
+            #!/bin/bash
+            yum update -y
+            yum install httpd -y
+            systemctl start httpd
+            systemctl enable httpd
+            echo "<h1>ASG Elizabeth Andres</h1>" > /var/www/html/index.html
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: TG-Elizabeth-Andres
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      VpcId: vpc-08b68991adb3a04e1
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: ALB-Elizabeth-Andres
+      Scheme: internet-facing
+
+      SecurityGroups:
+        - !ImportValue ALBSecurityGroupId
+
+      Subnets:
+        - subnet-042ea3825a43aaa37
+        - subnet-0dcc32f185b643fea
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+
+      AutoScalingGroupName: ASG-Elizabeth-Andres
+
+      MinSize: '1'
+      MaxSize: '3'
+      DesiredCapacity: '1'
+
+      VPCZoneIdentifier:
+        - subnet-042ea3825a43aaa37
+        - subnet-0dcc32f185b643fea
+
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+
+      TargetGroupARNs:
+        - !Ref TargetGroup
+
+      Tags:
+        - Key: Name
+          Value: ASG-Elizabeth-Andres
+          PropagateAtLaunch: true
+
+  WarmPool:
+    Type: AWS::AutoScaling::WarmPool
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      MinSize: 1
+
+Outputs:
+
+  LoadBalancerDNS:
+    Description: DNS del Application Load Balancer
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+
+  LaunchTemplateId:
+    Description: Launch Template ID
+    Value: !Ref LaunchTemplate
+
+  AutoScalingGroupName:
+    Description: Auto Scaling Group Name
+    Value: !Ref AutoScalingGroup
+
+  TargetGroupArn:
+    Description: Target Group ARN
+    Value: !Ref TargetGroup
