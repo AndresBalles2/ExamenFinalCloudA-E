@@ -1,0 +1,60 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  Deploy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - uses: actions/checkout@v4
+
+    - name: Configure AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Deploy Security
+      run: |
+        aws cloudformation deploy \
+        --stack-name Security-Elizabeth-Andres \
+        --template-file templates/security.yml \
+        --parameter-overrides VpcId=vpc-08b68991adb3a04e1 \
+        --region us-east-1
+
+    - name: Deploy EC2
+      run: |
+        # Use the selected subnet for the EC2 instance and fetch security group from Security stack outputs
+        aws cloudformation deploy \
+        --stack-name EC2-Elizabeth-Andres \
+        --template-file templates/ec2.yml \
+        --parameter-overrides \
+          SubnetId=subnet-042ea3825a43aaa37 \
+          SecurityGroupId=$(aws cloudformation describe-stacks --stack-name Security-Elizabeth-Andres --query "Stacks[0].Outputs[?OutputKey=='PublicEC2SecurityGroupId'].OutputValue" --output text)
+
+    - name: Deploy ALB-ASG
+      run: |
+        aws cloudformation deploy \
+        --stack-name ALB-ASG-Elizabeth-Andres \
+        --template-file templates/alb-asg.yml \
+        --parameter-overrides \
+          VpcId=vpc-08b68991adb3a04e1 \
+          PublicSubnetIds="subnet-042ea3825a43aaa37,subnet-0dcc32f185b643fea" \
+          SecurityStackName=Security-Elizabeth-Andres \
+        --region us-east-1
+
+    - name: Deploy Automation
+      run: |
+        aws cloudformation deploy \
+        --stack-name Automation-Elizabeth-Andres \
+        --template-file templates/automation.yml \
+        --parameter-overrides \
+          BaseStackName=ALB-ASG-Elizabeth-Andres \
+          PublicSubnetIds="subnet-042ea3825a43aaa37,subnet-0dcc32f185b643fea" \
+        --region us-east-1
