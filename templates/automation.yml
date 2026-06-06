@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Automation Stack Elizabeth-Andres
+
+Resources:
+
+  ScaleUpMorning:
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: ASG-Elizabeth-Andres
+      DesiredCapacity: 2
+      Recurrence: "0 8 * * *"
+
+  ScaleUpNoon:
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: ASG-Elizabeth-Andres
+      DesiredCapacity: 3
+      Recurrence: "0 12 * * *"
+
+  ScaleDownEvening:
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: ASG-Elizabeth-Andres
+      DesiredCapacity: 2
+      Recurrence: "0 18 * * *"
+
+  ScaleDownNight:
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: ASG-Elizabeth-Andres
+      DesiredCapacity: 1
+      Recurrence: "0 22 * * *"
+
+Outputs:
+  Message:
+    Value: Automation Configured
